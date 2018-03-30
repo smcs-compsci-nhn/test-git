@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Web SQL Editor</title>
+	<style>
+		body {font-family: Arial, sans;}
+		#status {background: lightgray; width:740px; padding:5px;}
+		#status.error  {background: red; color: white;}
+		#status.normal  {background: green; color: white;}
+		#sqlbox {font-size: 18pt;}
+		#results {margin-top: 25px; min-height:50px; width: 750px; border: 1px solid black}
+		#results table {margin: 1%; width: 98%;}
+		#results td {background: rgb(192,192,192);}
+		#results td.thd {background:black; color:white; font-weight:bold;}
+	</style>
+</head>
+
+<body>
+
+<!-- Main HTML code -->
+<div>
+    <h1>SQL Query Window</h1>
+    <textarea rows="10" cols="52" id="sqlbox"></textarea>
+    <p>
+	    <button id="sqlrun">RUN</button>
+	    <button id="sqldel">RESET</button>
+    </p>
+</div>
+
+<div id="status" class="normal">Enter a query and press RUN</div>
+<div id="results"></div>
+
+<!-- SQL Handling Script Code -->
+<script>
+function $(id){el=document.getElementById(id); return el;}
+
+$('sqlrun').addEventListener('click', runner);
+$('sqldel').addEventListener('click', resetter);
+
+var db = openDatabase('mydb', '1.0', 'Test DB', 2 * 1024 * 1024);
+
+function resetter(){
+	$('sqlbox').value = ""
+	$('results').innerHTML = ""
+	document.querySelector('#status').innerHTML = 'Enter a query and press RUN';
+	document.querySelector('#status').className = 'normal';
+}
+
+function runner(){
+	// empty the results table
+	$('results').innerHTML = ""
+	
+	// get the SQL from the textbox
+	sql = $('sqlbox').value;
+	
+	// run the SQL query
+	db.transaction(function (tx) {
+	  tx.executeSql(sql, [], function (tx, results) {
+	    document.querySelector('#status').innerHTML = 'rows found: ' + results.rows.length;
+	    document.querySelector('#status').className = 'normal';
+	    
+	    // if there are any results get the field name headings
+	    if(results.rows.length > 0){
+			
+			// work out css column width %
+			width = Math.floor(100 /results.rows.length)
+			
+			// start building the result table
+			var headingHTML = "<table id='sqlres'><tr>"
+			// get the headings from the first row of the results
+			// any item will do, so just use first row
+			var headings = Object.keys(results.rows.item(0));
+			
+			// construct the field names row
+			for (var j = 0; j < headings.length; j++){
+			    headingHTML += "<td class='thd' width='" + width +"%'>" + headings[j] + "</td>"
+		    };
+		    
+		    // finalise the tables HTML and write to the results div
+		    headingHTML += "</tr></table>"
+		    $('results').innerHTML = headingHTML;
+		    
+		    // create a variable that locates the results table
+		    var tbl = $('sqlres');
+		    
+		    // prepare an array ready to accept a row of data values
+		    // each value will be inserted as a cell in a new row
+		    var cells = [];
+		    
+		    // go through the results one line at a time
+		    for ( var i = 0; i < results.rows.length; i++) {
+				    
+				    // get the row data dictionary and insert a new <tr>
+	                var rowData =results.rows.item(i)
+					var row = tbl.insertRow(-1);
+					
+					// insert cells - same number as fields requested
+					for (j = 0; j < headings.length; j++){
+						cells[j] = row.insertCell(j);
+				    }
+				    
+					// now look at each value in the row data and insert
+					// it into the appropriate cell using the keys that
+					// held in the headings array
+					for (j = 0; j < cells.length; j++) { 
+						cells[j].innerHTML = rowData[headings[j]];
+					}
+            }
+		    
+		 };
+		
+	  }, function (tx, err) {
+	    document.querySelector('#status').innerHTML = 'Query Error: <em>' + err.message + '</em>';
+	    document.querySelector('#status').className = 'error';
+	  });
+	});
+};
+  
+// set up the database table and populate the table with data
+db.transaction(function (tx) {
+   tx.executeSql('DROP TABLE IF EXISTS computer');
+   tx.executeSql('CREATE TABLE IF NOT EXISTS computer (id unique, name, RAM, CPU, DriveType, DriveSize)');
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (1, "ValuPC",   8, "i3-2400", "HDD", 1000)' );
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (2, "UberPC",  16, "i7-8900", "SSD", 512 )' );
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (3, "Homeworx", 4, "i3-4200", "SSD", 256 )' );
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (4, "BusiPC",   8, "i5-7300", "HDD", 500 )' );
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (5, "Homeworx", 8, "i3-4200", "HDD", 1000)' );
+   tx.executeSql('INSERT INTO computer (id, name, RAM, CPU, DriveType, DriveSize) VALUES (6, "BusiPC",   4, "i5-7300", "HDD", 500 )' );
+});
+</script>
+</body>
+</html>
